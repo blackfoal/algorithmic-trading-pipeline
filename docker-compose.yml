@@ -36,7 +36,7 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
 
   historical-producer:
-    build: ./producer
+    build: ./data-processors/producer
     env_file: .env
     environment:
       - SYMBOLS=${SYMBOLS:-BTC/USDT}
@@ -48,7 +48,7 @@ services:
     restart: "no"
 
   realtime-producer:
-    build: ./producer
+    build: ./data-processors/producer
     env_file: .env
     environment:
       - SYMBOLS=${SYMBOLS:-BTC/USDT}
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
 
   db-consumer:
-    build: ./db-consumer
+    build: ./data-processors/db-consumer
     env_file: .env
     environment:
       - TOPIC_NAME=binance-ohlcv

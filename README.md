@@ -1,4 +1,21 @@
-# Algorithmic Trading Data Pipeline
+# Algorithmic Trading Pipeline
+
+A comprehensive algorithmic trading system with real-time cryptocurrency data streaming capabilities. This repository is designed to evolve into a full-featured trading platform.
+
+## 🏗️ Project Structure
+
+```
+algorithmic-trading-pipeline/
+├── strategies/           # Strategy classes and definitions
+├── execution-engine/     # Strategy execution environment  
+├── data-processors/      # Your existing data pipeline
+├── shared/              # Common utilities and models
+└── docker-compose.yml   # Updated with new services
+```
+
+**Current Status**: Only the data processing pipeline has been implemented. Other components are planned for future development.
+
+## 📊 Data Processing Pipeline
 
 A real-time cryptocurrency data streaming system that continuously fetches Binance OHLCV data, processes it through Kafka, and stores it in PostgreSQL for algorithmic trading analysis.
 
