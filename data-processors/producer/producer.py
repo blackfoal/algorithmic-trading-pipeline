@@ -10,10 +10,10 @@ import ccxt
 # Get configuration from environment variables
 symbols = os.getenv('SYMBOLS', 'BTC/USDT,ETH/USDT').split(',')
 kafka_broker = os.getenv('KAFKA_BROKER', 'kafka:9092')
-topic_name = os.getenv('TOPIC_NAME', 'binance-ohlcv')
+topic_name = os.getenv('OHLCV_TOPIC')
 binance_api_key = os.getenv('BINANCE_API_KEY')
 binance_secret_key = os.getenv('BINANCE_SECRET_KEY')
-backfill_days = int(os.getenv('BACKFILL_DAYS', '7'))
+backfill_days = int(os.getenv('BACKFILL_DAYS'))
 pg_user = os.getenv('POSTGRES_USER')
 pg_password = os.getenv('POSTGRES_PASSWORD')
 pg_db = os.getenv('POSTGRES_DB', 'binance')

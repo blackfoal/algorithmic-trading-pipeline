@@ -9,8 +9,8 @@ import ccxt
 # Get configuration from environment variables
 symbols = os.getenv('SYMBOLS', 'BTC/USDT,ETH/USDT').split(',')
 kafka_broker = os.getenv('KAFKA_BROKER', 'kafka:9092')
-topic_name = os.getenv('TOPIC_NAME', 'binance-ohlcv')
-BACKFILL_EVENTS_TOPIC = os.getenv('BACKFILL_EVENTS_TOPIC', '').strip()
+topic_name = os.getenv('OHLCV_TOPIC', 'binance-ohlcv')
+
 binance_api_key = os.getenv('BINANCE_API_KEY')
 binance_secret_key = os.getenv('BINANCE_SECRET_KEY')
 backfill_days = int(os.getenv('BACKFILL_DAYS', '7'))
@@ -253,15 +253,7 @@ def backfill_historical_data():
             'symbols_processed': symbols
         }
         
-        if BACKFILL_EVENTS_TOPIC:
-            producer = get_kafka_producer()
-            print(f"📤 Sending completion marker to topic: {BACKFILL_EVENTS_TOPIC} ...")
-            producer.send(BACKFILL_EVENTS_TOPIC, value=completion_marker)
-            producer.flush()  # Ensure message is sent
-            print("✅ Backfill completion marker published")
-            producer.close()  # Close the producer
-        else:
-            print("ℹ️ BACKFILL_EVENTS_TOPIC not set; skipping marker publish")
+        print("ℹ️ Backfill completion marker publishing removed")
     except Exception as e:
         print(f"❌ Failed to handle completion marker: {e}")
     

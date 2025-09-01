@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Get configuration from environment variables
 kafka_broker = os.getenv('KAFKA_BROKER')
-topic_name = os.getenv('TOPIC_NAME')
+topic_name = os.getenv('OHLCV_TOPIC')
 pg_user = os.getenv('POSTGRES_USER')
 pg_password = os.getenv('POSTGRES_PASSWORD')
 pg_db = os.getenv('POSTGRES_DB')

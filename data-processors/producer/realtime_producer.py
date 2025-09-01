@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 kafka_bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-topic_name = os.getenv('TOPIC_NAME', 'binance-ohlcv')
+topic_name = os.getenv('OHLCV_TOPIC', 'binance-ohlcv')
 symbols_str = os.getenv('SYMBOLS', 'BTC/USDT')
 symbols = [s.strip() for s in symbols_str.split(',')]
 realtime_delay_seconds = int(os.getenv('REALTIME_DELAY_SECONDS', '1'))
