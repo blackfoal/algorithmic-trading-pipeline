@@ -316,6 +316,15 @@ def process_minute_data(calculator: IndicatorCalculator, producer: KafkaProducer
                 indicators = calculator.update_minute_candle(db_symbol, data)
                 
                 if indicators:
+                    # Calculate latency from original data timestamp
+                    current_time = int(time.time() * 1000)
+                    data_timestamp = data.get('timestamp', current_time)
+                    
+                    # For minute candles, the candle completes 1 minute after its timestamp
+                    # So we should measure latency from when it actually completes, not when it opens
+                    candle_completion_time = data_timestamp + 60000  # Add 1 minute (60000ms)
+                    processing_latency = current_time - candle_completion_time
+                    
                     # Publish indicators to signals topic
                     signal = {
                         'symbol': db_symbol,
@@ -323,10 +332,14 @@ def process_minute_data(calculator: IndicatorCalculator, producer: KafkaProducer
                         'update_type': 'minute_candle',
                         'timestamp': indicators['timestamp'],
                         'indicators': indicators,
-                        'ts': datetime.utcnow().isoformat()
+                        'ts': datetime.utcnow().isoformat(),
+                        'processing_latency_ms': processing_latency,
+                        'service': 'signals-consumer',
+                        'data_source': 'binance-ohlcv'
                     }
                     
                     producer.send(SIGNALS_TOPIC, key=db_symbol, value=signal)
+                    logger.info(f"Published signal for {db_symbol} - Processing latency: {processing_latency}ms")
                     
             except Exception as e:
                 logger.error(f"Error processing minute message: {e}")
@@ -376,6 +389,11 @@ def process_live_data(calculator: IndicatorCalculator, producer: KafkaProducer, 
                     indicators = calculator.update_live_candle(db_symbol, event)
                     
                     if indicators:
+                        # Calculate latency from original data timestamp
+                        current_time = int(time.time() * 1000)
+                        data_timestamp = event.get('ts', current_time)
+                        processing_latency = current_time - data_timestamp
+                        
                         # Publish indicators to signals topic
                         signal = {
                             'symbol': db_symbol,
@@ -383,10 +401,14 @@ def process_live_data(calculator: IndicatorCalculator, producer: KafkaProducer, 
                             'update_type': 'live_update',
                             'timestamp': indicators['timestamp'],
                             'indicators': indicators,
-                            'ts': datetime.utcnow().isoformat()
+                            'ts': datetime.utcnow().isoformat(),
+                            'processing_latency_ms': processing_latency,
+                            'service': 'signals-consumer',
+                            'data_source': 'market-stream'
                         }
                         
                         producer.send(SIGNALS_TOPIC, key=db_symbol, value=signal)
+                        logger.info(f"Published live signal for {db_symbol} - Processing latency: {processing_latency}ms")
                         
                 elif event_type == "aggTrade":
                     # Could use for additional real-time price monitoring

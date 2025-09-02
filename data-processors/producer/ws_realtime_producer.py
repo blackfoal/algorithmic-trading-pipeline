@@ -2,10 +2,14 @@ import os
 import json
 import time
 import threading
+import logging
 from typing import List
 
 from kafka import KafkaProducer
 from binance import ThreadedWebsocketManager
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"))
@@ -33,10 +37,26 @@ def main():
 
     def publish(event: dict):
         try:
+            # Add latency tracking
+            current_time = int(time.time() * 1000)
+            event["producer_timestamp"] = current_time
+            
+            # Calculate latency from Binance timestamp
+            binance_ts = event.get("ts", current_time)
+            latency_ms = current_time - binance_ts
+            
+            # Add latency info to event
+            event["latency_ms"] = latency_ms
+            event["service"] = "ws-realtime-producer"
+            
             key = event.get("symbol", "").lower()
             producer.send(TOPIC, key=key, value=event)
-        except Exception:
-            pass
+            
+            # Log latency for monitoring
+            logger.info(f"Published {event.get('type')} for {event.get('symbol')} - Latency: {latency_ms}ms")
+            
+        except Exception as e:
+            logger.error(f"Error publishing event: {e}")
 
     # Kline (1m) stream callback
     def handle_kline(msg):
