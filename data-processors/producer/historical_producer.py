@@ -17,7 +17,7 @@ backfill_days = int(os.getenv('BACKFILL_DAYS', '7'))
 pg_user = os.getenv('POSTGRES_USER')
 pg_password = os.getenv('POSTGRES_PASSWORD')
 pg_db = os.getenv('POSTGRES_DB', 'binance')
-pg_host = os.getenv('POSTGRES_HOST', 'host.docker.internal')
+pg_host = os.getenv('POSTGRES_HOST', 'postgres')
 
 # Initialize Binance API
 binance = ccxt.binance({

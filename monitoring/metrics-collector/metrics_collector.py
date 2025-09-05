@@ -19,12 +19,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "metrics-postgres")
-POSTGRES_DB = os.getenv("GRAFANA_POSTGRES_DB", "grafana")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "murat_binance")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "2112")
-kafka_wait_seconds = int(os.getenv("KAFKA_WAIT_SECONDS", "30"))
+KAFKA_BROKER = os.getenv("KAFKA_BROKER")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+kafka_wait_seconds = int(os.getenv("KAFKA_WAIT_SECONDS"))
 
 # Topics to monitor
 TOPICS_TO_MONITOR = [

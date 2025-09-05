@@ -4,8 +4,8 @@ datasources:
   - name: PostgreSQL
     type: postgres
     access: proxy
-    url: metrics-postgres:5432
-    database: ${GRAFANA_POSTGRES_DB}
+    url: ${POSTGRES_HOST}:5432
+    database: ${GRAFANA_DB}
     user: ${POSTGRES_USER}
     secureJsonData:
       password: ${POSTGRES_PASSWORD}

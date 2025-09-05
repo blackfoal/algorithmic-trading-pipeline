@@ -44,23 +44,30 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
     volumes:
-      - grafana-storage:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     restart: unless-stopped
 
-  metrics-postgres:
+  postgres:
     image: postgres:15
     env_file: .env
     environment:
-      POSTGRES_DB: ${GRAFANA_POSTGRES_DB:-grafana}
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
     volumes:
-      - ./monitoring/sql/init.sql:/docker-entrypoint-initdb.d/20-init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
-  # Using host PostgreSQL (host.docker.internal). No internal postgres container needed for metrics.
+  # All services now use containerized PostgreSQL
 
   historical-producer:
     build: ./data-processors/producer
@@ -68,10 +75,16 @@ services:
     environment:
       - SYMBOLS=${SYMBOLS:-BTC/USDT}
       - BACKFILL_DAYS=${BACKFILL_DAYS:-7}
-
-    command: python historical_producer.py
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${BINANCE_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: sh -c "sleep 10 && python historical_producer.py"
     depends_on:
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: "no"
 
   realtime-producer:
@@ -82,9 +95,16 @@ services:
       - REALTIME_DELAY_SECONDS=${REALTIME_DELAY_SECONDS:-1}
       - TOPIC_NAME=${OHLCV_TOPIC}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BROKER}
-    command: python realtime_producer.py
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${BINANCE_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: sh -c "sleep 15 && python realtime_producer.py"
     depends_on:
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: unless-stopped
 
   ws-realtime-producer:
@@ -94,7 +114,7 @@ services:
       - SYMBOLS=${SYMBOLS:-BTCUSDT,ETHUSDT}
       - KAFKA_BROKER=${KAFKA_BROKER}
       - MARKET_STREAM_TOPIC=${MARKET_STREAM_TOPIC}
-    command: python ws_realtime_producer.py
+    command: sh -c "sleep 5 && python ws_realtime_producer.py"
     depends_on:
       - kafka
     restart: unless-stopped
@@ -107,11 +127,18 @@ services:
       - OHLCV_TOPIC=${OHLCV_TOPIC}
       - MARKET_STREAM_TOPIC=${MARKET_STREAM_TOPIC}
       - SIGNALS_TOPIC=${TRADING_SIGNALS_TOPIC}
-
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${BINANCE_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - INDICATOR_WINDOW=${INDICATOR_WINDOW:-200}
-    command: python consumer.py
+      - ENABLE_VALIDATION_LOGGING=${ENABLE_VALIDATION_LOGGING:-false}
+    command: sh -c "sleep 20 && python consumer.py"
     depends_on:
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: unless-stopped
   db-consumer:
     build: ./data-processors/db-consumer
@@ -119,21 +146,29 @@ services:
     environment:
       - TOPIC_NAME=${OHLCV_TOPIC}
       - KAFKA_BROKER=${KAFKA_BROKER}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${BINANCE_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: sh -c "sleep 10 && python consumer.py"
     depends_on:
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: unless-stopped
 
   metrics-collector:
     build: ./monitoring/metrics-collector
     env_file: .env
     environment:
-      POSTGRES_HOST: metrics-postgres
-      GRAFANA_POSTGRES_DB: ${GRAFANA_POSTGRES_DB:-grafana}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${GRAFANA_DB}
+    command: sh -c "sleep 5 && python metrics_collector.py"
     depends_on:
-      - kafka
-      - metrics-postgres
-      # uses host.docker.internal postgres
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      # uses containerized postgres
     restart: unless-stopped
-
-volumes:
-  grafana-storage:

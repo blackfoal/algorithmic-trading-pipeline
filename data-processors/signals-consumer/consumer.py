@@ -21,10 +21,17 @@ OHLCV_TOPIC = os.getenv("OHLCV_TOPIC", "binance-ohlcv")
 MARKET_TOPIC = os.getenv("MARKET_STREAM_TOPIC", "market-stream")
 SIGNALS_TOPIC = os.getenv("SIGNALS_TOPIC", "trading-signals")
 WINDOW = int(os.getenv("INDICATOR_WINDOW", "200"))
+ENABLE_VALIDATION_LOGGING = os.getenv("ENABLE_VALIDATION_LOGGING", "false").lower() == "true"
 
 # Add a sleep at the start of the script
 logger.info("Sleeping for 30 seconds to ensure Kafka is ready...")
 time.sleep(30)
+
+# Log validation logging status
+if ENABLE_VALIDATION_LOGGING:
+    logger.info("🔍 VALIDATION LOGGING ENABLED - Detailed validation data will be printed")
+else:
+    logger.info("🔍 VALIDATION LOGGING DISABLED - Only basic indicator calculations will be shown")
 
 # Remove BACKFILL_TOPIC reference
 # BACKFILL_TOPIC = os.getenv("BACKFILL_EVENTS_TOPIC", "backfill-events")
@@ -152,7 +159,71 @@ class IndicatorCalculator:
         
         print(f"🎯 BREAKING POINT 3: Indicators are calculated for {symbol} - MACD: {indicators['macd']['line']:.6f}, BB_Upper: {indicators['bollinger_bands']['upper']:.6f}")
         
+        # Output detailed validation data for manual verification (if enabled)
+        if ENABLE_VALIDATION_LOGGING:
+            self.output_validation_data(symbol, close_price, timestamp, extended_prices, indicators)
+        
         return indicators
+    
+    def output_validation_data(self, symbol: str, close_price: float, timestamp: int, extended_prices: list, indicators: dict):
+        """Output detailed validation data for manual verification"""
+        print("\n" + "="*80)
+        print(f"🔍 VALIDATION DATA FOR {symbol}")
+        print("="*80)
+        
+        # Current candle info
+        current_candle = self.current_candles[symbol]
+        print(f"📊 CURRENT CANDLE:")
+        print(f"   Timestamp: {timestamp} ({datetime.fromtimestamp(timestamp/1000)})")
+        print(f"   Open: {current_candle.get('open', 'N/A')}")
+        print(f"   High: {current_candle.get('high', 'N/A')}")
+        print(f"   Low: {current_candle.get('low', 'N/A')}")
+        print(f"   Close: {close_price}")
+        print(f"   Volume: {current_candle.get('volume', 'N/A')}")
+        
+        # Price buffer info
+        print(f"\n📈 PRICE BUFFER ({len(self.price_buffers[symbol])} candles):")
+        print(f"   Buffer size: {len(self.price_buffers[symbol])}")
+        print(f"   Extended prices (buffer + current): {len(extended_prices)}")
+        
+        # Show all 26 prices used for MACD calculation
+        buffer_prices = list(self.price_buffers[symbol])
+        print(f"   All 26 prices used for MACD calculation:")
+        for i, price in enumerate(buffer_prices[-26:], 1):
+            print(f"     {i:2d}: {price:.8f}")
+        print(f"   Current price: {close_price}")
+        
+        # MACD calculation details
+        print(f"\n📊 MACD CALCULATION:")
+        print(f"   Fast EMA (12): {self._calculate_ema(np.array(extended_prices), 12)[-1]:.6f}")
+        print(f"   Slow EMA (26): {self._calculate_ema(np.array(extended_prices), 26)[-1]:.6f}")
+        print(f"   MACD Line: {indicators['macd']['line']:.6f}")
+        print(f"   Signal Line: {indicators['macd']['signal']:.6f}")
+        print(f"   Histogram: {indicators['macd']['histogram']:.6f}")
+        
+        # Bollinger Bands calculation details
+        print(f"\n📊 BOLLINGER BANDS CALCULATION:")
+        last_20_prices = extended_prices[-20:]
+        sma_20 = np.mean(last_20_prices)
+        std_20 = np.std(last_20_prices)
+        print(f"   Last 20 prices: {last_20_prices}")
+        print(f"   SMA (20): {sma_20:.6f}")
+        print(f"   Std Dev: {std_20:.6f}")
+        print(f"   Upper Band: {indicators['bollinger_bands']['upper']:.6f}")
+        print(f"   Middle Band: {indicators['bollinger_bands']['middle']:.6f}")
+        print(f"   Lower Band: {indicators['bollinger_bands']['lower']:.6f}")
+        
+        # Raw data for external validation
+        print(f"\n📋 RAW DATA FOR EXTERNAL VALIDATION:")
+        print(f"   Symbol: {symbol}")
+        print(f"   Timestamp: {timestamp}")
+        print(f"   All 27 prices used for calculations (26 buffer + current):")
+        for i, price in enumerate(extended_prices[-27:], 1):
+            print(f"     {i:2d}: {price:.8f}")
+        
+        print("="*80)
+        print("✅ Use this data to validate against external sources (TradingView, Binance, etc.)")
+        print("="*80 + "\n")
     
     def calculate_macd(self, prices: Deque[float], fast: int = 12, slow: int = 26, signal: int = 9) -> Tuple[float, float, float]:
         """Calculate MACD: MACD line, Signal line, Histogram"""

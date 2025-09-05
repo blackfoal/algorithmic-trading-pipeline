@@ -138,7 +138,7 @@ BINANCE_SECRET_KEY=your_secret_key
 POSTGRES_USER=your_user
 POSTGRES_PASSWORD=your_password
 POSTGRES_DB=your_database
-POSTGRES_HOST=host.docker.internal
+POSTGRES_HOST=metrics-postgres
 
 # Kafka Configuration
 KAFKA_BROKER=kafka:9092
@@ -149,7 +149,7 @@ KAFKA_UI_PORT=8090
 SYMBOLS=BTC/USDT,ETH/USDT,ADA/USDT,SOL/USDT,DOT/USDT,BNB/USDT,XRP/USDT
 BACKFILL_DAYS=7
 REALTIME_DELAY_SECONDS=1
-```
+```if
 
 ## 🚀 Quick Start
 
