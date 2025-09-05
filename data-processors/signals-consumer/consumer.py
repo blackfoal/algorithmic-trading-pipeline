@@ -264,11 +264,10 @@ class IndicatorCalculator:
             
         prices_array = np.array(list(prices))
         
-        # Middle band (SMA)
-        middle = np.mean(prices_array[-period:])
-        
-        # Standard deviation
-        std = np.std(prices_array[-period:])
+        # Use ALL prices for consistency with EMA calculations
+        # This ensures Bollinger Bands reflect the same market context as MACD
+        middle = np.mean(prices_array)
+        std = np.std(prices_array)
         
         # Upper and lower bands
         upper = middle + (std_dev * std)
@@ -291,11 +290,30 @@ class IndicatorCalculator:
         # Calculate multiplier
         multiplier = 2.0 / (period + 1)
         
+        # Debug logging for Slow EMA (only when validation is enabled)
+        if ENABLE_VALIDATION_LOGGING and period == 26:
+            print(f"\n🔍 EMA CALCULATION DEBUG:")
+            print(f"   Period: {period}, Prices: {len(prices)}, Multiplier: {multiplier:.10f}")
+            print(f"   First {period} prices: {prices[:period].tolist()}")
+            print(f"   SMA of first {period}: {sma:.10f}")
+        
         # Calculate EMA for each subsequent price
         ema = sma
         for i in range(period, len(prices)):
+            old_ema = ema
             ema = (prices[i] * multiplier) + (ema * (1 - multiplier))
             ema_values[i] = ema
+            
+            # Detailed step-by-step logging (only when validation is enabled)
+            if ENABLE_VALIDATION_LOGGING and period == 26:
+                print(f"   Step {i+1}: Price[{i}] = {prices[i]:.10f}")
+                print(f"     EMA = {prices[i]:.10f} * {multiplier:.10f} + {old_ema:.10f} * {1-multiplier:.10f}")
+                print(f"     EMA = {prices[i] * multiplier:.10f} + {old_ema * (1-multiplier):.10f}")
+                print(f"     EMA = {ema:.10f}")
+            
+        if ENABLE_VALIDATION_LOGGING and period == 26:
+            print(f"   Final EMA: {ema:.10f}")
+            print(f"   EMA array: {ema_values}")
             
         return ema_values
     
