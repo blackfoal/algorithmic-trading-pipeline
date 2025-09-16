@@ -7,7 +7,7 @@ import psycopg2
 import ccxt
 
 # Get configuration from environment variables
-symbols = os.getenv('SYMBOLS', 'BTC/USDT,ETH/USDT').split(',')
+symbols = os.getenv('SYMBOLS').split(',')
 kafka_broker = os.getenv('KAFKA_BROKER', 'kafka:9092')
 topic_name = os.getenv('OHLCV_TOPIC', 'binance-ohlcv')
 

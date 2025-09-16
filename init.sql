@@ -184,4 +184,5 @@ BEGIN
     RAISE NOTICE 'Created databases: grafana, binance';
     RAISE NOTICE 'Grafana database: monitoring metrics and dashboards';
     RAISE NOTICE 'Binance database: ticker data and trading signals';
+    RAISE NOTICE 'Note: Backtesting database runs in separate container';
 END $$;
