@@ -39,33 +39,33 @@ def list_periods(conn) -> List[Tuple[str]]:
         return [row[0] for row in cur.fetchall()]
 
 
-def list_symbols_for_period(conn, period_id: str) -> List[str]:
+def list_symbols_for_period(conn, period_id: str, frequency: str) -> List[str]:
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT DISTINCT symbol
-            FROM ticker_data_historical
-            WHERE period_id = %s
+            FROM ticker_data
+            WHERE period_id = %s AND frequency = %s
             ORDER BY symbol
             """,
-            (period_id,)
+            (period_id, frequency)
         )
         return [row[0] for row in cur.fetchall()]
 
 
-def fetch_closes(conn, period_id: str, symbol: str) -> Tuple[np.ndarray, np.ndarray]:
+def fetch_closes(conn, period_id: str, symbol: str, frequency: str) -> Tuple[np.ndarray, np.ndarray]:
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT t.ts, t.close
-            FROM ticker_data_historical t
+            FROM ticker_data t
             JOIN periods p ON t.period_id = p.id
-            WHERE t.period_id = %s AND t.symbol = %s
+            WHERE t.period_id = %s AND t.symbol = %s AND t.frequency = %s
                 AND t.ts >= COALESCE(p.buffer_start_time, p.start_time)
                 AND t.ts <= p.end_time
             ORDER BY t.ts
             """,
-            (period_id, symbol)
+            (period_id, symbol, frequency)
         )
         rows = cur.fetchall()
     ts = np.array([r[0] for r in rows], dtype=object)
@@ -81,20 +81,21 @@ def ensure_table(conn):
                 symbol text NOT NULL,
                 ts timestamp NOT NULL,
                 period_id text NOT NULL,
+                frequency text NOT NULL CHECK (frequency IN ('15m','30m','1h')),
                 close numeric(20,8) NOT NULL,
                 ema_12 numeric(20,8) NOT NULL,
                 ema_26 numeric(20,8) NOT NULL,
                 macd_line numeric(20,8) NOT NULL,
                 macd_signal numeric(20,8) NOT NULL,
                 macd_histogram numeric(20,8) NOT NULL,
-                PRIMARY KEY (symbol, ts, period_id)
+                PRIMARY KEY (symbol, ts, period_id, frequency)
             )
             """
         )
         conn.commit()
 
 
-def upsert_macd(conn, period_id: str, symbol: str, ts_arr: np.ndarray, close_arr: np.ndarray,
+def upsert_macd(conn, period_id: str, symbol: str, frequency: str, ts_arr: np.ndarray, close_arr: np.ndarray,
                 ema12: np.ndarray, ema26: np.ndarray, macd: np.ndarray, signal: np.ndarray, hist: np.ndarray):
     # Get the actual period start time to filter out buffer data
     with conn.cursor() as cur:
@@ -111,9 +112,12 @@ def upsert_macd(conn, period_id: str, symbol: str, ts_arr: np.ndarray, close_arr
     filtered_signal = signal[mask]
     filtered_hist = hist[mask]
     
-    # Delete existing records for this symbol and period first
+    # Delete existing records for this symbol, period, and frequency first
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM macd_indicators WHERE symbol = %s AND period_id = %s", (symbol, period_id))
+        cur.execute(
+            "DELETE FROM macd_indicators WHERE symbol = %s AND period_id = %s AND frequency = %s",
+            (symbol, period_id, frequency)
+        )
     
     # Insert only the filtered data
     values = [
@@ -121,6 +125,7 @@ def upsert_macd(conn, period_id: str, symbol: str, ts_arr: np.ndarray, close_arr
             symbol,
             filtered_ts[i],
             period_id,
+            frequency,
             round(float(filtered_close[i]), 8),
             round(float(filtered_ema12[i]), 8),
             round(float(filtered_ema26[i]), 8),
@@ -134,7 +139,7 @@ def upsert_macd(conn, period_id: str, symbol: str, ts_arr: np.ndarray, close_arr
             cur,
             """
             INSERT INTO macd_indicators (
-                symbol, ts, period_id, close, ema_12, ema_26, macd_line, macd_signal, macd_histogram
+                symbol, ts, period_id, frequency, close, ema_12, ema_26, macd_line, macd_signal, macd_histogram
             ) VALUES %s
             """,
             values,
@@ -143,12 +148,12 @@ def upsert_macd(conn, period_id: str, symbol: str, ts_arr: np.ndarray, close_arr
         conn.commit()
 
 
-def compute_and_store_for_period(conn, period_id: str):
-    symbols = list_symbols_for_period(conn, period_id)
+def compute_and_store_for_period(conn, period_id: str, frequency: str):
+    symbols = list_symbols_for_period(conn, period_id, frequency)
     total = 0
-    logger.info(f"Computing MACD for period {period_id} using Standard EMA (12,26,9) methodology")
+    logger.info(f"Computing MACD for period {period_id} ({frequency}) using Standard EMA (12,26,9) methodology")
     for symbol in symbols:
-        ts, closes = fetch_closes(conn, period_id, symbol)
+        ts, closes = fetch_closes(conn, period_id, symbol, frequency)
         if ts.size < 30:
             logger.warning(f"{symbol}: insufficient data ({ts.size} points), skipping")
             continue
@@ -157,26 +162,32 @@ def compute_and_store_for_period(conn, period_id: str):
         macd = ema12 - ema26
         signal = compute_ema(macd, 9)
         hist = macd - signal
-        upsert_macd(conn, period_id, symbol, ts, closes, ema12, ema26, macd, signal, hist)
+        upsert_macd(conn, period_id, symbol, frequency, ts, closes, ema12, ema26, macd, signal, hist)
         total += ts.size
-        logger.info(f"{period_id} {symbol}: {ts.size} rows (MACD line: {macd[-1]:.2f}, Signal: {signal[-1]:.2f}, Hist: {hist[-1]:.2f})")
-    logger.info(f"Period {period_id}: upserted {total} rows total")
+        logger.info(f"{period_id} {symbol} ({frequency}): {ts.size} rows (MACD line: {macd[-1]:.2f}, Signal: {signal[-1]:.2f}, Hist: {hist[-1]:.2f})")
+    logger.info(f"Period {period_id} ({frequency}): upserted {total} rows total")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Compute MACD in Python and upsert to DB")
     parser.add_argument('--period', help='Specific period ID to compute')
     parser.add_argument('--all', action='store_true', help='Compute for all periods')
+    parser.add_argument('--frequency', help='Frequency to compute (15m, 30m, 1h)', default='15m')
     args = parser.parse_args()
+
+    # Validate frequency
+    if args.frequency not in {'15m', '30m', '1h'}:
+        print("❌ Invalid frequency. Must be one of: 15m, 30m, 1h")
+        sys.exit(1)
 
     conn = get_db_conn()
     try:
         ensure_table(conn)
         if args.period:
-            compute_and_store_for_period(conn, args.period)
+            compute_and_store_for_period(conn, args.period, args.frequency)
         elif args.all:
             for pid in list_periods(conn):
-                compute_and_store_for_period(conn, pid)
+                compute_and_store_for_period(conn, pid, args.frequency)
         else:
             print("Please specify --period PERIOD_ID or --all")
             sys.exit(2)

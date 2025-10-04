@@ -1,12 +1,20 @@
--- Drop and recreate state_history table with all indicators
+-- Create unified state history table with all indicators per frequency
 -- This is the single source of truth for backtesting
-DROP TABLE IF EXISTS state_history;
 
-CREATE TABLE state_history AS
+-- Remove existing rows to ensure idempotency
+DELETE FROM state_history;
+
+INSERT INTO state_history (
+    symbol, ts, period_id, frequency, close,
+    macd_line, macd_signal, macd_histogram,
+    bb_upper, bb_middle, bb_lower, bb_z,
+    rsi_7, rsi_14, rsi_30
+)
 SELECT 
     m.symbol,
     m.ts,
     m.period_id,
+    m.frequency,
     m.close,
     
     -- MACD indicators
@@ -31,18 +39,19 @@ LEFT JOIN bb_indicators bb ON (
     m.symbol = bb.symbol 
     AND m.ts = bb.ts
     AND m.period_id = bb.period_id
+    AND m.frequency = bb.frequency
 )
 LEFT JOIN rsi_indicators r ON (
     m.symbol = r.symbol 
     AND m.ts = r.ts
     AND m.period_id = r.period_id
+    AND m.frequency = r.frequency
 )
 WHERE m.ts >= p.start_time AND m.ts <= p.end_time
-ORDER BY m.symbol, m.ts;
+ORDER BY m.symbol, m.frequency, m.ts;
 
--- Add primary key and indexes after table creation
-ALTER TABLE state_history ADD PRIMARY KEY (symbol, ts, period_id);
-CREATE INDEX idx_state_history_symbol ON state_history(symbol);
-CREATE INDEX idx_state_history_ts ON state_history(ts);
-CREATE INDEX idx_state_history_period_id ON state_history(period_id);
-CREATE INDEX idx_state_history_symbol_ts ON state_history(symbol, ts);
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_state_history_symbol_freq ON state_history(symbol, frequency);
+CREATE INDEX IF NOT EXISTS idx_state_history_ts ON state_history(ts);
+CREATE INDEX IF NOT EXISTS idx_state_history_period_id ON state_history(period_id);
+CREATE INDEX IF NOT EXISTS idx_state_history_symbol_ts ON state_history(symbol, ts);

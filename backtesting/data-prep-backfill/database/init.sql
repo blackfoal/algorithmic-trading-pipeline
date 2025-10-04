@@ -7,6 +7,7 @@
 CREATE TABLE IF NOT EXISTS periods (
     id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    buffer_start_time TIMESTAMP NULL,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
     tags TEXT[], -- Array of tags for filtering
@@ -15,10 +16,15 @@ CREATE TABLE IF NOT EXISTS periods (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Historical 1-minute data for backtesting (with 200 candles buffer for indicators)
-CREATE TABLE IF NOT EXISTS ticker_data_historical (
+-- Unified OHLCV data with frequency column ('15m','30m','1h')
+DROP TABLE IF EXISTS ticker_data_15min;
+DROP TABLE IF EXISTS ticker_data_30min;
+DROP TABLE IF EXISTS ticker_data_1h;
+
+CREATE TABLE IF NOT EXISTS ticker_data (
     id SERIAL PRIMARY KEY,
     symbol VARCHAR(20) NOT NULL,
+    frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('15m','30m','1h')),
     timestamp BIGINT NOT NULL,
     ts TIMESTAMP NOT NULL,
     date DATE NOT NULL,
@@ -32,90 +38,98 @@ CREATE TABLE IF NOT EXISTS ticker_data_historical (
     volume_usd DECIMAL(20, 8) NOT NULL,
     period_id VARCHAR(50) REFERENCES periods(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(symbol, timestamp, period_id)
+    UNIQUE(symbol, timestamp, period_id, frequency)
 );
 
--- Note: Removed ticker_data_seconds as 1-second historical data not available via REST API
+-- Note: Removed ticker_data_seconds and 1-minute historical tables in favor of multi-timeframe (15m/30m/1h)
 
--- Note: Removed indicator_base table - all indicators now read directly from ticker_data_historical
+-- Drop legacy single-timeframe indicator/state tables if present
+DROP TABLE IF EXISTS macd_indicators;
+DROP TABLE IF EXISTS bb_indicators;
+DROP TABLE IF EXISTS rsi_indicators;
+DROP TABLE IF EXISTS state_history;
+DROP INDEX IF EXISTS idx_indicators_symbol_timestamp;
+DROP INDEX IF EXISTS idx_indicators_period;
 
--- MACD indicators table
+-- Unified MACD indicators with frequency column
+DROP TABLE IF EXISTS macd_indicators_15m;
+DROP TABLE IF EXISTS macd_indicators_30m;
+DROP TABLE IF EXISTS macd_indicators_1h;
+
 CREATE TABLE IF NOT EXISTS macd_indicators (
     symbol VARCHAR(20) NOT NULL,
     ts TIMESTAMPTZ NOT NULL,
     period_id VARCHAR(50) NOT NULL REFERENCES periods(id),
+    frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('15m','30m','1h')),
     close DECIMAL(20, 8) NOT NULL,
-    
-    -- MACD components
     ema_12 DECIMAL(20, 8),
     ema_26 DECIMAL(20, 8),
     macd_line DECIMAL(20, 8),
     macd_signal DECIMAL(20, 8),
     macd_histogram DECIMAL(20, 8),
-    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, ts, period_id)
+    PRIMARY KEY (symbol, ts, period_id, frequency)
 );
 
--- Bollinger Bands indicators table
+-- Unified Bollinger Bands indicators with frequency column
+DROP TABLE IF EXISTS bb_indicators_15m;
+DROP TABLE IF EXISTS bb_indicators_30m;
+DROP TABLE IF EXISTS bb_indicators_1h;
+
 CREATE TABLE IF NOT EXISTS bb_indicators (
     symbol VARCHAR(20) NOT NULL,
     ts TIMESTAMPTZ NOT NULL,
     period_id VARCHAR(50) NOT NULL REFERENCES periods(id),
-    
-    -- Bollinger Bands components
+    frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('15m','30m','1h')),
     bb_middle DECIMAL(20, 8),
     bb_std DECIMAL(20, 8),
     bb_upper DECIMAL(20, 8),
     bb_lower DECIMAL(20, 8),
     bb_z DECIMAL(20, 8),
-    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, ts, period_id)
+    PRIMARY KEY (symbol, ts, period_id, frequency)
 );
 
--- RSI indicators table
+-- Unified RSI indicators with frequency column
+DROP TABLE IF EXISTS rsi_indicators_15m;
+DROP TABLE IF EXISTS rsi_indicators_30m;
+DROP TABLE IF EXISTS rsi_indicators_1h;
+
 CREATE TABLE IF NOT EXISTS rsi_indicators (
     symbol VARCHAR(20) NOT NULL,
     ts TIMESTAMPTZ NOT NULL,
     period_id VARCHAR(50) NOT NULL REFERENCES periods(id),
-    
-    -- RSI components
+    frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('15m','30m','1h')),
     rsi_7 DECIMAL(20, 8),
     rsi_14 DECIMAL(20, 8),
     rsi_30 DECIMAL(20, 8),
-    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, ts, period_id)
+    PRIMARY KEY (symbol, ts, period_id, frequency)
 );
 
--- State history table (final combined table)
+-- Unified State history table with frequency column
+DROP TABLE IF EXISTS state_history_15m;
+DROP TABLE IF EXISTS state_history_30m;
+DROP TABLE IF EXISTS state_history_1h;
+
 CREATE TABLE IF NOT EXISTS state_history (
     symbol VARCHAR(20) NOT NULL,
     ts TIMESTAMPTZ NOT NULL,
     period_id VARCHAR(50) REFERENCES periods(id),
-    
-    -- Price data
+    frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('15m','30m','1h')),
     close DECIMAL(20, 8) NOT NULL,
-    
-    -- MACD indicators
     macd_line DECIMAL(20, 8),
     macd_signal DECIMAL(20, 8),
     macd_histogram DECIMAL(20, 8),
-    
-    -- Bollinger Bands
     bb_upper DECIMAL(20, 8),
     bb_middle DECIMAL(20, 8),
     bb_lower DECIMAL(20, 8),
     bb_z DECIMAL(20, 8),
-    
-    -- RSI indicators
     rsi_7 DECIMAL(20, 8),
     rsi_14 DECIMAL(20, 8),
     rsi_30 DECIMAL(20, 8),
-    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, ts, period_id)
+    PRIMARY KEY (symbol, ts, period_id, frequency)
 );
 
 -- Strategy results
@@ -159,13 +173,38 @@ CREATE TABLE IF NOT EXISTS strategy_comparison (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_ticker_historical_symbol_timestamp ON ticker_data_historical(symbol, timestamp);
-CREATE INDEX IF NOT EXISTS idx_ticker_historical_period ON ticker_data_historical(period_id);
-CREATE INDEX IF NOT EXISTS idx_indicators_symbol_timestamp ON state_history(symbol, ts);
-CREATE INDEX IF NOT EXISTS idx_indicators_period ON state_history(period_id);
+-- Indexes for performance (unified)
+CREATE INDEX IF NOT EXISTS idx_ticker_symbol_timestamp_freq ON ticker_data(symbol, frequency, timestamp);
+CREATE INDEX IF NOT EXISTS idx_ticker_period_freq ON ticker_data(period_id, frequency);
+
+CREATE INDEX IF NOT EXISTS idx_state_history_symbol_ts_freq ON state_history(symbol, frequency, ts);
+CREATE INDEX IF NOT EXISTS idx_state_history_period_freq ON state_history(period_id, frequency);
 CREATE INDEX IF NOT EXISTS idx_strategy_results_strategy ON strategy_results(strategy_id);
 CREATE INDEX IF NOT EXISTS idx_strategy_results_period ON strategy_results(period_id);
 CREATE INDEX IF NOT EXISTS idx_strategy_results_symbol ON strategy_results(symbol);
+
+-- 1-minute execution feed for higher-fidelity simulation (no indicators here)
+CREATE TABLE IF NOT EXISTS execution_data_1m (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL,
+    timestamp BIGINT NOT NULL,
+    ts TIMESTAMP NOT NULL,
+    date DATE NOT NULL,
+    hour INTEGER NOT NULL,
+    min INTEGER NOT NULL,
+    open DECIMAL(20, 8) NOT NULL,
+    high DECIMAL(20, 8) NOT NULL,
+    low DECIMAL(20, 8) NOT NULL,
+    close DECIMAL(20, 8) NOT NULL,
+    volume_crypto DECIMAL(20, 8) NOT NULL,
+    volume_usd DECIMAL(20, 8) NOT NULL,
+    period_id VARCHAR(50) REFERENCES periods(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(symbol, timestamp, period_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exec1m_symbol_ts ON execution_data_1m(symbol, timestamp);
+CREATE INDEX IF NOT EXISTS idx_exec1m_period ON execution_data_1m(period_id);
 
 -- Functions for updating timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()

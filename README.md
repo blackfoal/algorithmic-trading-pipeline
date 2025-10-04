@@ -203,3 +203,70 @@ docker-compose logs -f db-consumer
 3. **Database Errors**: Check credentials and connection parameters
 4. **Rate Limiting**: Monitor Binance API usage and adjust delays
 
+## 🧪 Backtesting: Data Prep & Backfill (Docker Compose)
+
+Run these from the repository root. The `backtesting-job` service uses the dedicated Postgres (`postgres-backtesting`) with persistent volume and reads its configuration from BACKTEST_* variables in your `.env`.
+
+### Show help (default)
+```bash
+docker-compose --profile backtesting-job run --rm backtesting-job
+```
+
+### Backfill all periods (uses symbols from env)
+```bash
+docker-compose --profile backtesting-job run --rm backtesting-job --all
+```
+
+### Backfill 1m execution feed (for finer execution realism) and then all periods
+```bash
+docker-compose --profile backtesting-job run --rm backtesting-job --all --exec1m
+```
+
+### Show backfill status
+```bash
+docker-compose --profile backtesting-job run --rm backtesting-job --status
+```
+
+### Backfill a specific period
+```bash
+docker-compose --profile backtesting-job run --rm backtesting-job --period pre_etf_approval_grind
+```
+
+### Temporarily override symbols for one run
+```bash
+docker-compose --profile backtesting-job run --rm -e SYMBOLS="BTC/USDT,ETH/USDT" backtesting-job --period pre_etf_approval_grind
+```
+
+Notes:
+- Inside containers the DB host/port are `postgres-backtesting:5432`. From your Mac use `localhost:5433` to inspect.
+- Backtesting symbols come from `BACKTEST_SYMBOLS` in `.env` and are mapped to container `SYMBOLS`.
+
+### Data preparation (indicators and state_history)
+
+Use the same container but override the entrypoint to run `data_preparation.py` directly:
+
+- Show help:
+```bash
+docker-compose --profile backtesting-job run --rm --entrypoint python backtesting-job data_preparation.py -h
+```
+
+- Prepare all periods and all frequencies (15m, 30m, 1h):
+```bash
+docker-compose --profile backtesting-job run --rm --entrypoint python backtesting-job data_preparation.py --all
+```
+
+- Show preparation status (rows per period/frequency):
+```bash
+docker-compose --profile backtesting-job run --rm --entrypoint python backtesting-job data_preparation.py --status
+```
+
+- Prepare a specific period only:
+```bash
+docker-compose --profile backtesting-job run --rm --entrypoint python backtesting-job data_preparation.py --period pre_etf_approval_grind
+```
+
+- Limit to specific frequencies (comma-separated: 15m,30m,1h):
+```bash
+docker-compose --profile backtesting-job run --rm --entrypoint python backtesting-job data_preparation.py --all --frequencies "15m,30m"
+```
+

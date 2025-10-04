@@ -83,16 +83,16 @@ services:
     image: postgres:15
     env_file: .env
     environment:
-      POSTGRES_DB: backtesting
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${BACKTEST_POSTGRES_DB}
+      POSTGRES_USER: ${BACKTEST_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${BACKTEST_POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
       - ./backtesting/database/init.sql:/docker-entrypoint-initdb.d/01-backtesting.sql
       - postgres_backtesting_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d backtesting"]
+      test: ["CMD-SHELL", "pg_isready -U ${BACKTEST_POSTGRES_USER} -d ${BACKTEST_POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -109,8 +109,8 @@ services:
     build: ./data-processors/producer
     env_file: .env
     environment:
-      - SYMBOLS=${SYMBOLS:-BTC/USDT}
-      - BACKFILL_DAYS=${BACKFILL_DAYS:-7}
+      - SYMBOLS=${SYMBOLS}
+      - BACKFILL_DAYS=${BACKFILL_DAYS}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_DB=${BINANCE_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -129,8 +129,8 @@ services:
     build: ./data-processors/producer
     env_file: .env
     environment:
-      - SYMBOLS=${SYMBOLS:-BTC/USDT}
-      - REALTIME_DELAY_SECONDS=${REALTIME_DELAY_SECONDS:-1}
+      - SYMBOLS=${SYMBOLS}
+      - REALTIME_DELAY_SECONDS=${REALTIME_DELAY_SECONDS}
       - TOPIC_NAME=${OHLCV_TOPIC}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BROKER}
       - POSTGRES_HOST=${POSTGRES_HOST}
@@ -151,7 +151,7 @@ services:
     build: ./data-processors/producer
     env_file: .env
     environment:
-      - SYMBOLS=${SYMBOLS:-BTCUSDT,ETHUSDT}
+      - SYMBOLS=${SYMBOLS}
       - KAFKA_BROKER=${KAFKA_BROKER}
       - MARKET_STREAM_TOPIC=${MARKET_STREAM_TOPIC}
     command: sh -c "sleep 5 && python ws_realtime_producer.py"
@@ -223,13 +223,17 @@ services:
 
   backtesting-job:
     build: ./backtesting
+    working_dir: /app/data-prep-backfill
     env_file: .env
     environment:
-      - POSTGRES_HOST=postgres-backtesting
-      - POSTGRES_DB=backtesting
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - SYMBOLS=${SYMBOLS:-BTCUSDT,ETHUSDT,ADAUSDT}
+      - POSTGRES_HOST=${BACKTEST_POSTGRES_HOST}
+      - POSTGRES_PORT=${BACKTEST_POSTGRES_PORT}
+      - POSTGRES_DB=${BACKTEST_POSTGRES_DB}
+      - POSTGRES_USER=${BACKTEST_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${BACKTEST_POSTGRES_PASSWORD}
+      - SYMBOLS=${BACKTEST_SYMBOLS}
+    entrypoint: ["python", "backfill_data.py"]
+    command: ["--help"]
     depends_on:
       postgres-backtesting:
         condition: service_healthy

@@ -15,22 +15,21 @@ A comprehensive backtesting system for algorithmic trading strategies that mirro
 
 ```
 backtesting/
-├── data-prep-backfill/          # Data preparation module
-│   ├── config/
-│   │   └── periods.yaml         # Period definitions
-│   ├── database/
-│   │   └── init.sql             # Database schema
-│   ├── indicator_calculation/
-│   │   ├── 03_calculate_bollinger_bands.sql
-│   │   ├── 04_calculate_rsi.sql
-│   │   ├── 05_create_state_history.sql
-│   │   └── macd_python.py
-│   ├── backfill_data.py         # Historical data backfill
-│   ├── data_preparation.py      # Indicator calculation orchestration
-│   ├── period_manager.py        # Period management
-│   └── symbol_manager.py        # Symbol management & backfill
+├── config/
+│   └── periods.yaml              # Period definitions
+├── database/
+│   └── init.sql                 # Database schema
+├── sql/
+│   ├── 01_create_indicator_base.sql
+│   ├── 02_calculate_macd.sql
+│   ├── 03_calculate_bollinger_bands.sql
+│   ├── 04_calculate_rsi.sql
+│   └── 05_create_state_history.sql
 ├── strategy_interface.py        # Base strategy class
-├── backtest_engine.py           # Main backtesting engine
+├── period_manager.py            # Period management
+├── symbol_manager.py            # Symbol management & backfill
+├── data_preparation.py          # Indicator calculation orchestration
+├── backtest_engine.py           # Main orchestration
 ├── run_backtest.py             # CLI interface
 └── requirements.txt             # Dependencies
 ```
@@ -188,15 +187,11 @@ class MyStrategy(BaseStrategy):
 
 ## 🔄 **Workflow**
 
-### Data Preparation Phase (data-prep-backfill/)
-1. **Define Periods**: Create periods in `data-prep-backfill/config/periods.yaml`
+1. **Define Periods**: Create periods in `config/periods.yaml`
 2. **Sync Periods**: Load periods into database
 3. **Add Symbols**: Add trading symbols with automatic backfill
-4. **Prepare Data**: Calculate indicators and create state_history table
-
-### Backtesting Phase (main backtesting/)
-5. **Run Backtests**: Test strategies on specific periods using state_history table
-6. **Analyze Results**: Review performance metrics and trade history (via separate Streamlit module)
+4. **Run Backtests**: Test strategies on specific periods
+5. **Analyze Results**: Review performance metrics and trade history
 
 ## 🎯 **Best Practices**
 

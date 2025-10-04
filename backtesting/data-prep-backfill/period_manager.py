@@ -90,7 +90,11 @@ class PeriodManager:
             try:
                 with conn.cursor() as cursor:
                     for period in periods:
-                        # Insert or update period
+                        # Enforce a 200-hour warm-up buffer before the start_time
+                        start_dt = datetime.fromisoformat(period['start_time'])
+                        buffer_start_dt = start_dt - timedelta(hours=200)
+
+                        # Insert or update period with computed buffer_start_time
                         cursor.execute("""
                             INSERT INTO periods (id, name, buffer_start_time, start_time, end_time, tags, description)
                             VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -105,8 +109,8 @@ class PeriodManager:
                         """, (
                             period['id'],
                             period['name'],
-                            datetime.fromisoformat(period['buffer_start_time']) if 'buffer_start_time' in period else None,
-                            datetime.fromisoformat(period['start_time']),
+                            buffer_start_dt,
+                            start_dt,
                             datetime.fromisoformat(period['end_time']),
                             period['tags'],
                             period.get('description', '')
@@ -261,8 +265,10 @@ class PeriodManager:
             try:
                 with conn.cursor() as cursor:
                     # Delete associated data first
-                    cursor.execute("DELETE FROM ticker_data_minutes WHERE period_id = %s", (period_id,))
-                    cursor.execute("DELETE FROM ticker_data_seconds WHERE period_id = %s", (period_id,))
+                    cursor.execute("DELETE FROM ticker_data WHERE period_id = %s", (period_id,))
+                    cursor.execute("DELETE FROM macd_indicators WHERE period_id = %s", (period_id,))
+                    cursor.execute("DELETE FROM bb_indicators WHERE period_id = %s", (period_id,))
+                    cursor.execute("DELETE FROM rsi_indicators WHERE period_id = %s", (period_id,))
                     cursor.execute("DELETE FROM state_history WHERE period_id = %s", (period_id,))
                     cursor.execute("DELETE FROM strategy_results WHERE period_id = %s", (period_id,))
                     

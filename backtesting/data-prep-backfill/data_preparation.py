@@ -5,10 +5,12 @@ Orchestrates the creation of indicator base table and calculation of all indicat
 """
 
 import os
+import sys
 import psycopg2
 import logging
 from typing import List, Dict, Any
 from pathlib import Path
+from config import get_db_config
 
 class DataPreparation:
     def __init__(self, db_config: Dict[str, Any]):
@@ -16,60 +18,72 @@ class DataPreparation:
         self.logger = logging.getLogger(__name__)
         self.indicator_dir = Path(__file__).parent / "indicator_calculation"
         
-    def prepare_all_data(self) -> bool:
-        """Prepare all indicator data for all periods"""
+    def prepare_all_data(self, frequencies: List[str] = None) -> bool:
+        """Prepare all indicator data for all periods and frequencies"""
         try:
-            self.logger.info("Starting data preparation for all periods")
+            if frequencies is None:
+                frequencies = ['15m', '30m', '1h']
             
-            # Step 1: Calculate MACD indicators using Python
-            self.logger.info("Step 1: Calculating MACD indicators using Python...")
-            self._run_python_macd()
+            self.logger.info(f"Starting data preparation for all periods with frequencies: {frequencies}")
             
-            # Step 2: Calculate Bollinger Bands
-            self.logger.info("Step 2: Calculating Bollinger Bands...")
-            self._execute_sql_file("03_calculate_bollinger_bands.sql")
+            for freq in frequencies:
+                self.logger.info(f"\nProcessing {freq} frequency:")
+                
+                # Step 1: Calculate MACD indicators using Python
+                self.logger.info(f"Step 1: Calculating MACD indicators for {freq}...")
+                self._run_python_macd(frequency=freq)
+                
+                # Step 2: Calculate Bollinger Bands
+                self.logger.info(f"Step 2: Calculating Bollinger Bands for {freq}...")
+                self._execute_sql_file("03_calculate_bollinger_bands.sql")
+                
+                # Step 3: Calculate RSI indicators
+                self.logger.info(f"Step 3: Calculating RSI indicators for {freq}...")
+                self._execute_sql_file("04_calculate_rsi.sql")
+                
+                # Step 4: Create state history table
+                self.logger.info(f"Step 4: Creating state history table for {freq}...")
+                self._execute_sql_file("05_create_state_history.sql")
             
-            # Step 3: Calculate RSI indicators
-            self.logger.info("Step 3: Calculating RSI indicators...")
-            self._execute_sql_file("04_calculate_rsi.sql")
-            
-            # Step 4: Create state history table
-            self.logger.info("Step 4: Creating state history table...")
-            self._execute_sql_file("05_create_state_history.sql")
-            
-            self.logger.info("Data preparation completed for all periods")
+            self.logger.info("Data preparation completed for all periods and frequencies")
             return True
             
         except Exception as e:
             self.logger.error(f"Error preparing data: {str(e)}")
             return False
     
-    def prepare_all_periods(self) -> bool:
-        """Prepare data for all periods - now just calls prepare_all_data"""
-        return self.prepare_all_data()
+    def prepare_all_periods(self, frequencies: List[str] = None) -> bool:
+        """Prepare data for all periods - delegates to prepare_all_data with optional frequencies"""
+        return self.prepare_all_data(frequencies=frequencies)
     
-    def prepare_period_data(self, period_id: str) -> bool:
-        """Prepare indicator data for a specific period only"""
+    def prepare_period_data(self, period_id: str, frequencies: List[str] = None) -> bool:
+        """Prepare indicator data for a specific period and frequencies"""
         try:
-            self.logger.info(f"Starting data preparation for period: {period_id}")
+            if frequencies is None:
+                frequencies = ['15m', '30m', '1h']
             
-            # Step 1: Calculate MACD indicators for specific period using Python
-            self.logger.info("Step 1: Calculating MACD indicators for period using Python...")
-            self._run_python_macd_period(period_id)
+            self.logger.info(f"Starting data preparation for period {period_id} with frequencies: {frequencies}")
             
-            # Step 2: Calculate Bollinger Bands for specific period
-            self.logger.info("Step 2: Calculating Bollinger Bands for period...")
-            self._execute_sql_file_with_period("03_calculate_bollinger_bands.sql", period_id)
+            for freq in frequencies:
+                self.logger.info(f"\nProcessing {freq} frequency for period {period_id}:")
+                
+                # Step 1: Calculate MACD indicators for specific period using Python
+                self.logger.info(f"Step 1: Calculating MACD indicators for period using Python ({freq})...")
+                self._run_python_macd_period(period_id, frequency=freq)
+                
+                # Step 2: Calculate Bollinger Bands for specific period
+                self.logger.info(f"Step 2: Calculating Bollinger Bands for period ({freq})...")
+                self._execute_sql_file_with_period("03_calculate_bollinger_bands.sql", period_id)
+                
+                # Step 3: Calculate RSI indicators for specific period
+                self.logger.info(f"Step 3: Calculating RSI indicators for period ({freq})...")
+                self._execute_sql_file_with_period("04_calculate_rsi.sql", period_id)
+                
+                # Step 4: Create state history table for specific period
+                self.logger.info(f"Step 4: Creating state history table for period ({freq})...")
+                self._execute_sql_file_with_period("05_create_state_history.sql", period_id)
             
-            # Step 3: Calculate RSI indicators for specific period
-            self.logger.info("Step 3: Calculating RSI indicators for period...")
-            self._execute_sql_file_with_period("04_calculate_rsi.sql", period_id)
-            
-            # Step 4: Create state history table for specific period
-            self.logger.info("Step 4: Creating state history table for period...")
-            self._execute_sql_file_with_period("05_create_state_history.sql", period_id)
-            
-            self.logger.info(f"Data preparation completed for period: {period_id}")
+            self.logger.info(f"Data preparation completed for period {period_id} and all frequencies")
             return True
             
         except Exception as e:
@@ -90,8 +104,8 @@ class DataPreparation:
             self.logger.error(f"Error adding indicator {indicator_name}: {str(e)}")
             return False
     
-    def _run_python_macd(self):
-        """Run Python MACD calculation for all periods"""
+    def _run_python_macd(self, frequency: str = None):
+        """Run Python MACD calculation for all periods with optional frequency"""
         import subprocess
         import sys
         
@@ -100,11 +114,13 @@ class DataPreparation:
             raise FileNotFoundError(f"MACD Python script not found: {macd_script}")
         
         try:
-            result = subprocess.run([
-                sys.executable, str(macd_script), "--all"
-            ], capture_output=True, text=True, check=True)
+            cmd = [sys.executable, str(macd_script), "--all"]
+            if frequency:
+                cmd.extend(["--frequency", frequency])
             
-            self.logger.info("Python MACD calculation completed successfully")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            self.logger.info(f"Python MACD calculation completed successfully{' for ' + frequency if frequency else ''}")
             if result.stdout:
                 self.logger.info(f"MACD output: {result.stdout}")
                 
@@ -113,8 +129,8 @@ class DataPreparation:
             self.logger.error(f"Error output: {e.stderr}")
             raise
 
-    def _run_python_macd_period(self, period_id: str):
-        """Run Python MACD calculation for a specific period"""
+    def _run_python_macd_period(self, period_id: str, frequency: str = None):
+        """Run Python MACD calculation for a specific period and optional frequency"""
         import subprocess
         import sys
         
@@ -123,11 +139,13 @@ class DataPreparation:
             raise FileNotFoundError(f"MACD Python script not found: {macd_script}")
         
         try:
-            result = subprocess.run([
-                sys.executable, str(macd_script), "--period", period_id
-            ], capture_output=True, text=True, check=True)
+            cmd = [sys.executable, str(macd_script), "--period", period_id]
+            if frequency:
+                cmd.extend(["--frequency", frequency])
             
-            self.logger.info(f"Python MACD calculation completed successfully for period {period_id}")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            self.logger.info(f"Python MACD calculation completed successfully for period {period_id}{' and ' + frequency if frequency else ''}")
             if result.stdout:
                 self.logger.info(f"MACD output: {result.stdout}")
                 
@@ -202,45 +220,63 @@ class DataPreparation:
             conn.close()
     
     def get_preparation_status(self) -> Dict[str, Any]:
-        """Get status of data preparation for all periods"""
+        """Get status of data preparation for all periods and frequencies"""
         conn = psycopg2.connect(**self.db_config)
         try:
             with conn.cursor() as cursor:
-                # Skip indicator_base table check - no longer needed
-                
                 # Check state history table
                 cursor.execute("""
-                    SELECT period_id, COUNT(*) as record_count
+                    SELECT period_id, frequency, COUNT(*) as record_count
                     FROM state_history
-                    GROUP BY period_id
-                    ORDER BY period_id
+                    GROUP BY period_id, frequency
+                    ORDER BY period_id, frequency
                 """)
-                state_counts = {row[0]: row[1] for row in cursor.fetchall()}
+                state_counts = {}
+                for row in cursor.fetchall():
+                    period_id, freq, count = row
+                    if period_id not in state_counts:
+                        state_counts[period_id] = {}
+                    state_counts[period_id][freq] = count
                 
                 # Check individual indicator tables
                 cursor.execute("""
-                    SELECT period_id, COUNT(*) as record_count
+                    SELECT period_id, frequency, COUNT(*) as record_count
                     FROM macd_indicators
-                    GROUP BY period_id
-                    ORDER BY period_id
+                    GROUP BY period_id, frequency
+                    ORDER BY period_id, frequency
                 """)
-                macd_counts = {row[0]: row[1] for row in cursor.fetchall()}
+                macd_counts = {}
+                for row in cursor.fetchall():
+                    period_id, freq, count = row
+                    if period_id not in macd_counts:
+                        macd_counts[period_id] = {}
+                    macd_counts[period_id][freq] = count
                 
                 cursor.execute("""
-                    SELECT period_id, COUNT(*) as record_count
+                    SELECT period_id, frequency, COUNT(*) as record_count
                     FROM bb_indicators
-                    GROUP BY period_id
-                    ORDER BY period_id
+                    GROUP BY period_id, frequency
+                    ORDER BY period_id, frequency
                 """)
-                bb_counts = {row[0]: row[1] for row in cursor.fetchall()}
+                bb_counts = {}
+                for row in cursor.fetchall():
+                    period_id, freq, count = row
+                    if period_id not in bb_counts:
+                        bb_counts[period_id] = {}
+                    bb_counts[period_id][freq] = count
                 
                 cursor.execute("""
-                    SELECT period_id, COUNT(*) as record_count
+                    SELECT period_id, frequency, COUNT(*) as record_count
                     FROM rsi_indicators
-                    GROUP BY period_id
-                    ORDER BY period_id
+                    GROUP BY period_id, frequency
+                    ORDER BY period_id, frequency
                 """)
-                rsi_counts = {row[0]: row[1] for row in cursor.fetchall()}
+                rsi_counts = {}
+                for row in cursor.fetchall():
+                    period_id, freq, count = row
+                    if period_id not in rsi_counts:
+                        rsi_counts[period_id] = {}
+                    rsi_counts[period_id][freq] = count
                 
                 return {
                     'state_history': state_counts,
@@ -259,6 +295,7 @@ def main():
     parser.add_argument('--period', help='Specific period ID to prepare')
     parser.add_argument('--all', action='store_true', help='Prepare all periods')
     parser.add_argument('--status', action='store_true', help='Show preparation status')
+    parser.add_argument('--frequencies', help='Comma-separated list of frequencies to process (e.g. 15m,30m,1h)')
     
     args = parser.parse_args()
     
@@ -268,14 +305,17 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Get database config
-    db_config = {
-        'host': os.getenv('POSTGRES_HOST', 'localhost'),
-        'port': os.getenv('POSTGRES_PORT', '5432'),
-        'database': 'backtesting',
-        'user': os.getenv('POSTGRES_USER', 'postgres'),
-        'password': os.getenv('POSTGRES_PASSWORD', 'password')
-    }
+    # Get database config strictly from environment
+    db_config = get_db_config(strict=True)
+    
+    # Parse frequencies if provided
+    frequencies = None
+    if args.frequencies:
+        frequencies = [f.strip() for f in args.frequencies.split(',')]
+        valid_freqs = {'15m', '30m', '1h'}
+        if not all(f in valid_freqs for f in frequencies):
+            print("❌ Invalid frequencies. Must be one or more of: 15m, 30m, 1h")
+            sys.exit(1)
     
     prep = DataPreparation(db_config)
     
@@ -283,18 +323,20 @@ def main():
         status = prep.get_preparation_status()
         print("\n📊 Data Preparation Status:")
         print("=" * 50)
-        for table, counts in status.items():
+        for table, period_data in status.items():
             print(f"\n{table}:")
-            for period_id, count in counts.items():
-                print(f"  {period_id}: {count:,} records")
+            for period_id, freq_data in period_data.items():
+                print(f"  {period_id}:")
+                for freq, count in freq_data.items():
+                    print(f"    {freq}: {count:,} records")
     elif args.period:
-        success = prep.prepare_period_data(args.period)
+        success = prep.prepare_period_data(args.period, frequencies=frequencies)
         if success:
             print(f"✅ Successfully prepared data for period: {args.period}")
         else:
             print(f"❌ Failed to prepare data for period: {args.period}")
     elif args.all:
-        success = prep.prepare_all_periods()
+        success = prep.prepare_all_periods(frequencies=frequencies)
         if success:
             print("✅ Successfully prepared data for all periods")
         else:

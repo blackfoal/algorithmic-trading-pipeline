@@ -1,130 +1,130 @@
 # Backtesting Periods Configuration
-# Optimized for concise, high-impact testing with no overlaps
+# Extended periods for multi-timeframe testing (1m, 15m, 1h, 4h)
 
 periods:
-  # --- Modern Bull Trends (1-week focused periods) ---
+  # --- Extended Modern Bull Trends (1-month periods for 4h testing) ---
   - id: "pre_etf_approval_grind"
     name: "Pre-ETF Approval Grind"
-    buffer_start_time: "2023-12-18 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2023-12-20 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2023-12-27 23:59:59"
+    buffer_start_time: "2023-11-20 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2023-12-20 00:00:00" # Actual strategy start time
+    end_time: "2024-01-20 23:59:59" # 1 month of data
     tags: ["bull_market", "low_volatility", "institutional"]
-    description: "Steady, low-volatility grind up on ETF anticipation. Test trend-following."
+    description: "Extended period of steady, low-volatility grind up on ETF anticipation."
 
   - id: "post_etf_dip_recovery"
     name: "Post-ETF Dip Recovery"
-    buffer_start_time: "2024-01-21 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2024-01-23 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2024-01-30 23:59:59"   # 1-week core recovery
+    buffer_start_time: "2024-01-01 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2024-01-23 00:00:00" # Actual strategy start time
+    end_time: "2024-02-23 23:59:59" # 1 month of data
     tags: ["bull_market", "recovery_rally", "v-shaped"]
-    description: "First strong week of recovery after the 'sell the news' dip."
+    description: "Extended period of recovery after the 'sell the news' dip."
 
   - id: "run_to_new_ath"
     name: "Run to New ATH"
-    buffer_start_time: "2024-03-02 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2024-03-04 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2024-03-11 23:59:59"   # Week of the new ATH
+    buffer_start_time: "2024-02-04 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2024-03-04 00:00:00"
+    end_time: "2024-04-04 23:59:59"   # ~1 month
     tags: ["bull_market", "parabolic", "etf_inflows", "momentum"]
     description: "Explosive week culminating in a new all-time high."
 
   # --- Modern Bear Trends ---
   - id: "post_etf_sell_the_news"
     name: "Post-ETF Sell the News"
-    buffer_start_time: "2024-01-09 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2024-01-11 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2024-01-18 23:59:59"   # 1-week core of the crash
+    buffer_start_time: "2023-12-11 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2024-01-11 00:00:00"
+    end_time: "2024-01-20 23:59:59"   # ~10 days focused crash window
     tags: ["bear_market", "crash", "event_driven"]
     description: "First and sharpest week of the 'sell the news' crash."
 
   - id: "sec_lawsuit_selloff"
     name: "SEC Lawsuit Selloff"
-    buffer_start_time: "2023-06-03 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2023-06-05 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2023-06-12 23:59:59"   # 1-week core selloff
+    buffer_start_time: "2023-05-05 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2023-06-05 00:00:00"
+    end_time: "2023-06-19 23:59:59"   # ~2 weeks initial selloff
     tags: ["bear_market", "regulatory", "news_driven"]
     description: "Initial selloff week following SEC lawsuits against Binance/Coinbase."
 
   # --- High Volatility & Crises ---
   - id: "covid_19_black_thursday"
     name: "COVID-19 Black Thursday"
-    buffer_start_time: "2020-03-10 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2020-03-12 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2020-03-15 23:59:59"   # Focused on the crash and initial bounce
+    buffer_start_time: "2020-02-12 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2020-03-12 00:00:00"
+    end_time: "2020-03-15 23:59:59"   # 4-day stress test window
     tags: ["high_volatility", "flash_crash", "liquidity_crisis"]
     description: "The most intense 4 days of the COVID crash. Ultimate stress test."
 
   - id: "china_ban_elon_fud"
     name: "China Ban & Elon FUD"
-    buffer_start_time: "2021-05-17 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2021-05-19 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2021-05-26 23:59:59"   # 1-week of the crash and initial bottom
+    buffer_start_time: "2021-04-19 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2021-05-19 00:00:00"
+    end_time: "2021-05-26 23:59:59"   # ~1 week sharp crash
     tags: ["high_volatility", "liquidation_cascade", "sentiment"]
     description: "One-week period of the sharp China/Elon induced crash."
 
   # --- Consolidation & Sideways Markets ---
   - id: "pre_breakout_consolidation_2020"
     name: "Pre-Breakout Consolidation 2020"
-    buffer_start_time: "2020-10-13 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2020-10-15 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2020-10-22 23:59:59"   # 1-week of tight range before breakout
+    buffer_start_time: "2020-09-15 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2020-10-15 00:00:00"
+    end_time: "2020-10-22 23:59:59"   # ~1 week tight consolidation
     tags: ["low_volatility", "sideways", "accumulation"]
     description: "A week of tight low-volatility consolidation before the late-2020 bull run."
 
   - id: "pre_halving_consolidation_2024"
     name: "Pre-Halving Consolidation 2024"
-    buffer_start_time: "2024-03-30 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2024-04-01 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2024-04-08 23:59:59"   # 1-week of high-vol choppiness
+    buffer_start_time: "2024-03-01 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2024-04-01 00:00:00"
+    end_time: "2024-05-01 23:59:59"   # ~1 month
     tags: ["sideways", "high_volatility", "choppy", "pre_halving"]
     description: "A week of high-volatility chop in the wide pre-halving range."
 
   - id: "post_halving_sideways_2024"
     name: "Post-Halving Sideways 2024"
-    buffer_start_time: "2024-04-29 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2024-05-01 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2024-05-08 23:59:59"   # Recent 1-week of consolidation
+    buffer_start_time: "2024-04-01 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2024-05-01 00:00:00"
+    end_time: "2024-06-01 23:59:59"   # ~1 month
     tags: ["sideways", "modern", "low_volatility", "post_halving"]
     description: "Recent week of lower-volatility consolidation post-Bitcoin halving."
 
   # --- Classic Periods (Shortened) ---
   - id: "retail_mania_2017"
     name: "Retail Mania 2017"
-    buffer_start_time: "2017-12-08 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2017-12-10 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2017-12-17 23:59:59"   # 1-week of parabolic move
+    buffer_start_time: "2017-11-10 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2017-12-10 00:00:00"
+    end_time: "2017-12-17 23:59:59"   # ~1 week parabolic move
     tags: ["bull_market", "parabolic", "retail_fomo", "classic"]
     description: "One week of the most intense parabolic move in crypto history."
 
   - id: "capitulation_2018"
     name: "Capitulation 2018"
-    buffer_start_time: "2018-11-13 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2018-11-15 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2018-11-22 23:59:59"   # 1-week of brutal downtrend
+    buffer_start_time: "2018-10-15 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2018-11-15 00:00:00"
+    end_time: "2018-11-22 23:59:59"   # ~1 week brutal capitulation
     tags: ["bear_market", "downtrend", "capitulation", "classic"]
     description: "One week of the final brutal capitulation in the 2018 bear market."
 
   # --- Event-Driven Periods ---
   - id: "banking_crisis_rally_2023"
     name: "Banking Crisis Rally 2023"
-    buffer_start_time: "2023-03-08 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2023-03-10 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2023-03-17 23:59:59"   # 1-week of the rally
+    buffer_start_time: "2023-02-10 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2023-03-10 00:00:00" # Actual strategy start time
+    end_time: "2023-04-10 23:59:59" # 1 month of data
     tags: ["event_driven", "rally", "macro", "safe_haven"]
-    description: "Sharp rally driven by the SVB/Signature Bank crisis and safe-haven narrative."
+    description: "Extended period of rally driven by the SVB/Signature Bank crisis and safe-haven narrative."
 
   - id: "high_cpi_risk_off_2022"
     name: "High CPI Print (Risk-Off) 2022"
-    buffer_start_time: "2022-06-08 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2022-06-10 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2022-06-13 23:59:59"   # Release day + weekend reaction
+    buffer_start_time: "2022-05-10 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2022-06-10 00:00:00"
+    end_time: "2022-06-24 23:59:59"   # ~2 weeks risk-off
     tags: ["macro_event", "risk_off", "cpi"]
     description: "Immediate reaction to a high CPI print (8.6%) causing a risk-off selloff."
 
   - id: "low_cpi_risk_on_2022"
     name: "Low CPI Print (Risk-On) 2022"
-    buffer_start_time: "2022-11-08 00:00:00" # 48h buffer for indicator warmup
-    start_time: "2022-11-10 00:00:00" # Actual strategy start time (48h after buffer)
-    end_time: "2022-11-13 23:59:59"   # Release day + weekend reaction
+    buffer_start_time: "2022-10-10 00:00:00" # 1 month buffer for indicator warmup
+    start_time: "2022-11-10 00:00:00"
+    end_time: "2022-11-24 23:59:59"   # ~2 weeks relief rally
     tags: ["macro_event", "risk_on", "cpi", "relief_rally"]
     description: "Immediate explosive reaction to a softer-than-expected CPI print."
 
